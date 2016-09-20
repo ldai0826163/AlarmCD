@@ -1,0 +1,46 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <!-- 程序名称 -->
+	<add key="ApplicationName" value="金沙江下游成都调控中心水库调度自动化平台" />
+	<add key="DefaultFont" value="微软雅黑" />
+	<add key="FontSize" value="14" />
+	<!--程序默认主题-->
+	<add key="DefaultTheme" value="green" />
+	<!--程序版本-->
+	<add key="Version" value="1.00.11" />
+    <!--报表输出目录-->
+	<add key="ReportFuncDir" value=""/>	
+	<!--程序盘符 -->
+	<add key="AppDir" value="D:"/>	
+	<!--外部资源目录 -->
+	<add key="outerResourceDir" value="Resource" />
+    <!--本地工程-->
+	<add key="LocalPlantId" value="1234" />
+	<add key="LatestPlantId" value="1234" />
+  
+	<!--是否显示职称-->
+	<add key="ProfInfoVisible" value="false" />
+	<!-- 是否显示智能搜索按钮 -->
+	<add key="EnableSearchButton" value="false"/>
+	<!-- 是否打开高级选点对话-->
+	<add key="IfAdvDialog" value="false"/>
+    <!-- 是否打开用户行为分析功能 -->
+	<add key="EnableBehaviorAnalyse" value="true"/>
+	<!-- 是否在收藏列表里进行查询-->
+	<add key="SearchFav" value="true"/>
+	<!-- 是否自动在收藏列表里进行查询-->
+	<add key="AutoSelectFav" value="true"/>
+	<!-- 登录时是否默认记住密码-->
+	<add key="RememberPasswordStatus" value="true" />
+	<!-- 是否允许注册新用户-->
+	<add key="AllowRegiserUser" value="true" />
+	<!-- 是否使用登录辅助功能-->
+	<add key="AllowLoginAss" value="true" />
+	<!-- 选点对话框类型-->
+	<add key="SelectIdDialogType" value="Normal" />
+	<add key="LocalArea" value="3"/>
+	<!-- tomcat地址 -->
+	<add key="TomcatIpAddr" value="10.37.131.231:8080"/>
+	<add key="GisMapDir" value="map"/>
+	
+</configuration>		

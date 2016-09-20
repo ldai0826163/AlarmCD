@@ -1,0 +1,29 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+
+<project>
+  <!--SendPort>8000</SendPort-->
+  <AlarmInfoPort>5000</AlarmInfoPort>
+  <RtDataPort>7000</RtDataPort>
+  <YueJieTime>70</YueJieTime>
+  <RebootMin>10</RebootMin>
+  <LocalAddr>ip=10.37.131.18;port=11000;</LocalAddr>
+  <SMAddr>ip=127.0.0.1;port=1310;</SMAddr>
+  <OncallAddr>ip=10.1.1.1;port=10294;</OncallAddr>
+  <APPAddr>ip=10.1.1.1;port=10294;</APPAddr>
+  <MailAddr>smtp=pop3.163.com;name=cao;password=cao;port=80;mail=cao@126.com;isvalid=true;</MailAddr>
+  <IMCAddr>port=10294;ip=239.0.1.6;</IMCAddr>
+  <MonitorQueue>
+    <Queue1 type="JDBC" driver="oracle.jdbc.driver.OracleDriver" url="jdbc:oracle:thin:@10.37.132.5:1521:cd3lx"   user="wds" password="narisq" len="6" WaitMin="10">
+      <policy1>QueShu</policy1>
+      <policy2>LongTimeQueShu</policy2>
+      <policy3>LongTimeUnchange</policy3>
+      <policy4>BianFu</policy4>
+    </Queue1>
+    <Queue2 type="WDS" len="6" WaitMin="10">
+      <policy1>YuLiang</policy1>
+    </Queue2>
+    <Queue3 type="JDBC" driver="oracle.jdbc.driver.OracleDriver" url="jdbc:oracle:thin:@10.37.132.5:1521:cd3lx" user="wds" password="narisq" len="6" WaitMin="10">
+      <policy1>Sql</policy1>
+    </Queue3>
+  </MonitorQueue>
+</project>

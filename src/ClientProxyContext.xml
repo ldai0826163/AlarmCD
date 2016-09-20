@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/beans"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans 
+       classpath:/org/springframework/beans/factory/xml/spring-beans-3.0.xsd
+       http://www.springframework.org/schema/context
+       classpath:/org/springframework/context/config/spring-context-3.0.xsd">
+    
+	<!--水调历史数据服务注册-->
+	<bean id="wdsHisDataServiceRMI" class="com.nari.slsd.hd.clientproxy.WdsHisDataServiceProxyImp"/>
+	<!--监控历史数据服务注册-->
+	<bean id="ncHisDataServiceRMI" class="com.nari.slsd.hd.clientproxy.NcHisDataServiceProxyImp"/>
+	<!--通用历史数据服务注册-->
+	<bean id="genHisDataServiceRMI" class="com.nari.slsd.hd.clientproxy.GenHisDataServiceProxyImp"/>
+	<bean id="pubDataServiceRMI" class="com.nari.slsd.hd.clientproxy.PubDataServiceProxyImp"/>
+<!-- 	<bean id="hpsHisDataServiceRMI" class="com.nari.slsd.hps.clientproxy.HpsDataServiceProxyImp"/> -->
+
+	<!--rmi通讯异常拦截器-->
+	<bean id="rmiSocketExceptionInterceptor" class="com.nari.slsd.hd.inteceptor.RMISocketExceptionInterceptor"/>
+	<bean class="org.springframework.aop.framework.autoproxy.BeanNameAutoProxyCreator">
+		<property name="beanNames">
+			<value>*RMI</value>
+		</property>
+		<property name="interceptorNames">
+                <list>
+                	<value>rmiSocketExceptionInterceptor</value>
+                </list>
+        </property>
+	</bean>
+</beans>

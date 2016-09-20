@@ -1,0 +1,354 @@
+package com.nari.slsd.hd.alarmcd.threads;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.HashMap;
+import java.util.List;
+
+import com.nari.slsd.hd.jms.IJMSExecutor;
+import com.nari.slsd.hd.jms.JMSService;
+import com.nari.slsd.hd.jms.JMSTopicConsumer;
+import com.nari.slsd.hd.model.PubDefAlarm;
+import com.nari.slsd.hd.model.WdsHydroElements;
+import com.nari.slsd.hd.param.Param;
+import com.nari.slsd.hd.service.IPubDataService;
+import com.nari.slsd.hd.alarmcd.Config;
+import com.nari.slsd.hd.alarmcd.Main;
+import com.nari.slsd.hd.alarmcd.UserLog;
+import com.nari.slsd.hd.alarmcd.policies.BianFuPolicy;
+import com.nari.slsd.hd.alarmcd.policies.LongTimeQueShuPolicy;
+import com.nari.slsd.hd.alarmcd.policies.LongTimeUnchangePolicy;
+import com.nari.slsd.hd.alarmcd.policies.Policy;
+import com.nari.slsd.hd.alarmcd.policies.PolicyDefine;
+import com.nari.slsd.hd.alarmcd.policies.QueShuPolicy;
+import com.nari.slsd.hd.alarmcd.policies.ScriptPolicy;
+import com.nari.slsd.hd.alarmcd.policies.YuLiangPolicy;
+import com.nari.slsd.hd.alarmcd.policies.YueJiePolicy;
+import com.nari.slsd.hd.alarmcd.type.AlarmRecordManager;
+import com.nari.slsd.hd.alarmcd.type.MonitorQueueConfig;
+import com.nari.slsd.hd.alarmcd.type.SharedData;
+import com.nari.slsd.hd.dto.dataService.RealDataObject;
+public class CheckThread extends Thread{
+	static UserLog log=new UserLog();
+	IPubDataService pubService;
+	static Policy[] policies;
+	Policy[] policyClass;
+	int[] policyIndex;
+	boolean threadDone=false;
+	public void done() {
+		threadDone = true;
+	};
+	public CheckThread(IPubDataService pds) {
+		pubService=pds;
+		initPoliciesFromConfig();
+		getPolicyDefineFromDB();
+		AlarmRecordManager.init(policies);
+	}
+	 
+	private void initPoliciesFromConfig() {
+		int c=0;
+		for(int i=0;i<Config.mqconfigs.length;i++)
+		{
+			c+=Config.mqconfigs[i].policies.length;
+		}
+		policyClass=new Policy[c];
+		policyIndex=new int[c];
+		c=0;
+		for (int i=0;i<Config.mqconfigs.length;i++)
+		{
+			MonitorQueueConfig one=Config.mqconfigs[i];
+			for (int j=0;j<one.policies.length;j++)
+			{
+				try {
+					Policy p=(Policy) Class.forName("com.nari.slsd.hd.alarmcd.policies."+one.policies[j]+"Policy").newInstance();
+					policyClass[c]=p;
+					policyIndex[c]=i;
+					c++;
+				} catch (Exception e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+					log.info("Policy name "+one.policies+" define error,System exit");
+					System.exit(0);
+				}
+			}
+		}
+		
+	}
+	private void getPolicyDefineFromDB() {
+		try{
+		policies = new Policy[12];
+		QueShuPolicy one ;
+		for (int i=0;i<1;i++)
+		{
+			one= new QueShuPolicy();
+			one.setId(i);
+			one.setSenid(541000183);
+			one.setDataType(PolicyDefine.Real);
+			one.setInterval(1);
+			one.setTimeSpan(5);
+			policies[i] = one;
+		
+		}
+		for (int i=1;i<2;i++)
+		{
+		one = new QueShuPolicy();
+		one.setId(i);
+		one.setSenid(541000183);
+		one.setDataType(PolicyDefine.Hour);
+		one.setInterval(2);
+		one.setTimeSpan(20);
+		policies[i] = one;
+		}
+		for (int i=2;i<3;i++)
+		{
+		one = new QueShuPolicy();
+		one.setId(i);
+		one.setSenid(541000183);
+		one.setDataType(PolicyDefine.Day);
+		one.setInterval(10);
+		one.setTimeSpan(30);
+		policies[i] = one;	
+		}
+		for (int i=3;i<4;i++)
+		{
+		LongTimeQueShuPolicy l = new LongTimeQueShuPolicy();
+		l.setId(i);
+		l.setSenid(541000183);
+		l.setTimeSpan(10);
+		l.setInterval(60);
+		l.setCheckSpan(60);
+		l.setStartMin(600);
+		policies[i] = l;
+		}
+		for (int i=4;i<5;i++)
+		{
+		LongTimeUnchangePolicy lone = new LongTimeUnchangePolicy();
+		lone.setId(i);
+		lone.setSenid(541000183);
+		lone.setTimeSpan(10);
+		lone.setInterval(60);
+		lone.setCheckSpan(60);
+		lone.setStartMin(600);
+		lone.setRange(0.005);
+		policies[i] = lone;
+		}
+		BianFuPolicy bf;
+		for (int i=5;i<6;i++)
+		{
+		bf = new BianFuPolicy();
+		bf.setId(i);
+		bf.setSenid(541000183L);
+		bf.setDataType(PolicyDefine.Real);
+		bf.setInterval(2);
+		bf.setTimeSpan(10);
+		bf.setRangeLimit(0.001);
+		policies[i] = bf;
+		}
+		for (int i=6;i<7;i++)
+		{
+		bf = new BianFuPolicy();
+		bf.setId(i);
+		bf.setSenid(541000183L);
+		bf.setDataType(PolicyDefine.RollingSpan);
+		bf.setInterval(2);
+		bf.setTimeSpan(60);
+		bf.setRangeLimit(0.002);
+		policies[i] = bf;
+		}
+		for (int i=7;i<8;i++)
+		{
+		bf = new BianFuPolicy();
+		bf.setId(i);
+		bf.setSenid(541000183L);
+		bf.setDataType(PolicyDefine.Day);
+		bf.setInterval(10);
+		bf.setRangeLimit(0.05);
+		policies[i] = bf;
+		}
+		for (int i=8;i<9;i++)
+		{
+		bf = new BianFuPolicy();
+		bf.setId(i);
+		bf.setSenid(541000183L);
+		bf.setDataType(PolicyDefine.Hour);
+		bf.setInterval(30);
+		bf.setTimeSpan(120);
+		bf.setRangeLimit(0.002);
+		policies[i] = bf;	
+		}
+		for (int i=9;i<10;i++)
+		{
+			YueJiePolicy yjp= new YueJiePolicy();
+			yjp.setId(i);
+			yjp.setSenid(541000183L);
+			yjp.setDownLimit1(331.368);
+			yjp.setDownLimit2(331.348);
+			yjp.setUpLimit1(331.388);
+			yjp.setUpLimit2(331.398);
+			yjp.setRecoverLimit(0.01);
+			policies[i] = yjp;
+		
+		}
+		for (int i=10;i<11;i++)
+		{
+			YuLiangPolicy ylp= new YuLiangPolicy();
+			ylp.setId(i);
+			ylp.setSenid(604060004L);
+			ylp.setInterval(10);
+			ylp.setLimit(0.5);
+			ylp.setTimeSpan(0);
+			policies[i] = ylp;
+		
+		}
+		ScriptPolicy  sp =new ScriptPolicy();
+		sp.setId(11);
+		if (!
+		sp.getConfig("<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+				+"<policy name=\"实时传输\"><interval name=\"扫描间隔\">2</interval><script >(@a>=1)&amp;&amp;(@ab>=1)</script><variables><a tb=\"day+3\">select count (*) from rtsq where senid=297498677 and time >?</a><ab >select count (*) from real where senid=601150006 </ab>"
+				+"</variables></policy>"))
+			{
+				log.info("get config fail");
+				System.exit(0);
+			};
+		policies[11] =sp;
+		HashMap<String, Object> inmap1 = new HashMap<String, Object>();
+		inmap1.put(Param.AppType.App_Type_Key, Param.AppType.APP_Type_WDS);
+		List<WdsHydroElements> lists = pubService.getHydroDataList(
+				WdsHydroElements.class, inmap1);
+		for (int i = 0; i < policies.length; i++)
+		{
+			policies[i].setName(lists);
+		}
+		}
+		catch (Exception e)
+		{
+			Main.dealException(e);
+		}int c=0;		
+		YueJiePolicy one =new YueJiePolicy();
+		for (int i=0;i<policies.length;i++)
+		{
+			if (policies[i].getType()==one.getType())
+				c++;
+		}
+		if (c==0)
+			return;
+		yjpolicies=new YueJiePolicy[c];
+		c=0; 
+		for (int i=0;i<policies.length;i++)
+		{
+			if (policies[i].getType()==one.getType())
+			{
+				yjpolicies[c]=(YueJiePolicy) policies[i];
+				c++;
+			}
+		}
+	}
+	YueJiePolicy[] yjpolicies;
+	private void recvRTDataAndCheckYueJie(){
+		
+		
+		JMSService jmsService = JMSService.getInstance();
+		JMSTopicConsumer consumer = (JMSTopicConsumer)jmsService.createTopicConsumer("Topic.forRTDB");
+		if(consumer==null)
+			return;
+		
+			
+		consumer.onMessage(new IJMSExecutor() {
+			@Override
+			public void execute(Object messageObj) {
+				if(!(messageObj instanceof RealDataObject)) return;
+				RealDataObject data=(RealDataObject)messageObj;
+				RealDataObject datanew;
+				try {
+					datanew = data.deepClone();	
+					for (int i=0;i<yjpolicies.length;i++)
+					{
+						YueJiePolicy p =yjpolicies[i];
+						if(p.getSenid()==datanew.getId())
+						{
+							p.check(datanew.getTime(),datanew.getValue());
+							break;
+						}
+					}
+				} catch (Exception e) {
+					Main.dealException(e);
+				} 
+			}
+		});
+	}
+	public void run() {
+		
+		/*SingleDataBase dataDB = null;
+		if (Config.mqconfigs.length<1)
+		{
+			dataDB=new SingleDataBase(Config.DMdriver,Config.DMurl,Config.DMuser,Config.DMpass);
+		}
+		else
+		{
+			
+		}*/
+		try {
+			sleep(3000);
+		} catch (InterruptedException e1) {
+			e1.printStackTrace();
+		}//等monitor线程初始化
+		new RecvRtDataBrdThr(yjpolicies).start();
+	//	recvRTDataAndCheckYueJie();
+		while (!threadDone) 
+		{
+			try
+			{
+			Calendar cal =Calendar.getInstance();
+			for (int i=0;i<policyClass.length;i++)
+			{
+				Policy p =policyClass[i];
+				ArrayList<Policy> rp=p.needCheck(cal, policies);
+				if (rp!=null)
+					SharedData.monitors[policyIndex[i]].insertMonitor(cal,rp, p.getType());//排队等待数据库连接				
+				
+			}
+			/*ArrayList<Policy> rp=Policy.needCheck(cal, policies, PolicyDefine.QueShu);
+			if (rp!=null)
+				if (Config.mqconfigs.length<1)
+					new DataMonitorThread(cal,rp,dataDB).run();//  抢占数据库连接
+				else
+					SharedData.monitors[queShuMonitorIndex].insertMonitor(cal,rp, PolicyDefine.QueShu);//排队等待数据库连接					
+			rp=LongTimeQueShuPolicy.needCheck(cal, policies, PolicyDefine.LongTimeQueShu);
+			if (rp!=null)
+				if (Config.mqconfigs.length<1)
+					new DataMonitorThread(cal,rp,dataDB).run();//  抢占数据库连接
+				else
+					SharedData.monitors[longTimeQueShuMonitorIndex].insertMonitor(cal,rp, PolicyDefine.LongTimeQueShu);//排队等待数据库连接
+			rp=LongTimeQueShuPolicy.needCheck(cal, policies, PolicyDefine.LongTimeQueShu);
+			if (rp!=null)
+				if (Config.mqconfigs.length<1)
+					new DataMonitorThread(cal,rp,dataDB).run();//  抢占数据库连接
+				else
+					SharedData.monitors[longTimeQueShuMonitorIndex].insertMonitor(cal,rp, PolicyDefine.LongTimeUnchange);//排队等待数据库连接
+		
+		    */}
+			catch (Exception e)
+			{
+				e.printStackTrace();
+				log.info(e.toString());
+				System.exit(0);
+				
+			}
+		
+			try {
+				sleep(60000);
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+	}
+	
+	
+
+	
+	
+
+	
+
+	
+}

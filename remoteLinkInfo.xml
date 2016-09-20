@@ -1,0 +1,43 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<servers>
+	<server plant="1234" key="WDS_HISDATA" name="水调历史数据服务1" type="rmi" interfaceType="com.nari.slsd.hd.service.IWdsHisDataService">
+		<mains>
+			<main url="rmi://10.37.131.113:9900/wdsHisDataService"/>
+		</mains>
+		<baks>
+			<bak url="rmi://10.37.131.114:9900/wdsHisDataService"/>
+			<bak url="rmi://10.37.131.18:9900/wdsHisDataService"/>
+			<bak url="rmi://10.37.131.19:9900/wdsHisDataService"/>
+		</baks>
+	</server>
+	<server plant="1234" key="GEN_HISDATA" name="通用历史数据服务" type="rmi" interfaceType="com.nari.slsd.hd.service.IGenHisDataService">
+		<mains>
+			<main url="rmi://10.37.131.113:9902/genHisDataService"/>
+		</mains>
+		<baks>
+			<bak url="rmi://10.37.131.114:9902/genHisDataService"/>
+			<bak url="rmi://10.37.131.18:9902/genHisDataService"/>
+			<bak url="rmi://10.37.131.19:9902/genHisDataService"/>
+		</baks>
+	</server>
+	<server plant="1234" key="PUB_DATA" name="公共模型数据服务" type="rmi" interfaceType="com.nari.slsd.hd.service.IPubDataService">
+		<mains>
+			<main url="rmi://10.37.131.113:9903/pubDataService"/>
+		</mains>
+		<baks>
+			<bak url="rmi://10.37.131.114:9903/pubDataService"/>
+			<bak url="rmi://10.37.131.18:9903/pubDataService"/>
+			<bak url="rmi://10.37.131.19:9903/pubDataService"/>
+		</baks>
+	</server>
+	<server plant="1234" key="HPS_DATA" name="高级应用数据服务" type="rmi" interfaceType="com.nari.slsd.hps.service.IHpsDataService">
+		<mains>
+			<main url="rmi://10.37.131.113:9904/hpsHisDataService"/>
+		</mains>
+		<baks>
+			<bak url="rmi://10.37.131.114:9904/hpsHisDataService"/>
+			<bak url="rmi://10.37.131.18:9904/hpsHisDataService"/>
+			<bak url="rmi://10.37.131.19:9904/hpsHisDataService"/>
+		</baks>
+	</server>
+</servers>

@@ -1,0 +1,335 @@
+﻿package com.nari.slsd.hd.alarmcd.policies;
+
+import java.io.ByteArrayInputStream;
+import java.io.UnsupportedEncodingException;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.Timestamp;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.Iterator;
+import java.util.List;
+
+import org.dom4j.Document;
+import org.dom4j.DocumentException;
+import org.dom4j.Element;
+import org.dom4j.io.SAXReader;
+
+import com.nari.slsd.hd.alarmcd.type.AlarmRecord;
+import com.nari.slsd.hd.alarmcd.type.AlarmRecordManager;
+import com.nari.slsd.hd.alarmcd.type.SingleDataBase;
+import com.nari.slsd.hd.model.WdsHydroElements;
+import com.nari.slsd.hd.service.IWdsHisDataService;
+
+/*wjq*/
+
+public class QueShuPolicy extends Policy{
+	IdDefine[] ids;
+	String[] names;
+	
+	public int getDataType() {
+		return dataType;
+	}
+
+	public void setDataType(int dataType) {
+		this.dataType = dataType;
+	}
+
+	public int getTimeSpan() {
+		return timeSpan;
+	}
+
+	public void setTimeSpan(int timeSpan) {
+		this.timeSpan = timeSpan;
+	}
+
+	int dataType;
+	int timeSpan;//数据缺数判断时间要求大于0，实时向前判断时间段，时日月为时间段整点后检查延时分钟
+	//	float fgSpan=-1;//成都要求报警复归死区：fgSpan0.2m，越线1m 149-150报警，150-149.8不报警
+    String table="rtev";
+
+	public QueShuPolicy() {
+		type = PolicyDefine.QueShu;
+	}
+
+	public void check(Calendar cal, SingleDataBase db) {
+		log.debug("queshu check " + dataType + " " + name + " begin!");
+		AlarmRecord ar = AlarmRecordManager.getRecord(id);
+
+		if (ar.recordTime > cal.getTimeInMillis())
+			return;// 不检查旧数据
+		Connection conn = db.conn;
+		Date endTime = new Date(cal.getTimeInMillis() + 60 * 1000);// 允许报警服务器时间一分钟误差
+		Date startTime = null;
+		String sql = "";
+		String Type = "";
+		SimpleDateFormat sdf = new SimpleDateFormat("d日 HH时mm分");
+
+		if (dataType == PolicyDefine.Real) { // 实时数据
+
+			startTime = new Date(cal.getTimeInMillis() - timeSpan * 60 * 1000);
+			Type = "实时数据";
+		} else if (dataType == PolicyDefine.Hour) {
+			// 小时数据
+			int minute = cal.get(Calendar.MINUTE);
+			if ((minute) < timeSpan) {
+				// 没有到判断的时候
+				return;
+			}
+			Calendar hour = Calendar.getInstance();
+			hour.setTimeInMillis(cal.getTimeInMillis());
+			hour.set(Calendar.MINUTE, 0);
+			hour.set(Calendar.SECOND, 0);
+			hour.set(Calendar.MILLISECOND, 0);
+			startTime = new Date(hour.getTimeInMillis());
+			sql = "SELECT COUNT(*) from HOURDB WHERE SENID=? AND TIME >= ? AND TIME <?";
+			Type = "小时数据";
+		} else if (dataType == PolicyDefine.Day) {
+			// 日数据,开始时间为当日0点
+			int hourOfDay = cal.get(Calendar.HOUR_OF_DAY);
+			int minute = cal.get(Calendar.MINUTE);
+			if ((hourOfDay * 60 + minute) < timeSpan) {
+				// 没有到判断的时候
+				return;
+			}
+			Calendar day = Calendar.getInstance();
+			day.setTimeInMillis(cal.getTimeInMillis());
+			day.set(Calendar.HOUR_OF_DAY, 0);
+			day.set(Calendar.MINUTE, 0);
+			day.set(Calendar.SECOND, 0);
+			day.set(Calendar.MILLISECOND, 0);
+			startTime = new Date(day.getTimeInMillis());
+			sql = "SELECT COUNT(*) from DAYDB WHERE SENID=? AND TIME >= ? AND TIME <?";
+			Type = "日数据";
+		} else if (dataType == PolicyDefine.Month) {
+			// 月数据,开始时间为当月1日0点
+
+			int dayOfMonth = cal.get(Calendar.DAY_OF_MONTH);
+			int hourOfDay = cal.get(Calendar.HOUR_OF_DAY);
+			int minute = cal.get(Calendar.MINUTE);
+			if ((dayOfMonth * 24 * 60 + hourOfDay * 60 + minute) < timeSpan) {
+				// 没有到判断的时候
+				return;
+			}
+			Calendar month = Calendar.getInstance();
+			month.setTimeInMillis(cal.getTimeInMillis());
+			month.set(Calendar.DAY_OF_MONTH, 1);
+			month.set(Calendar.HOUR_OF_DAY, 0);
+			month.set(Calendar.MINUTE, 0);
+			month.set(Calendar.SECOND, 0);
+			month.set(Calendar.MILLISECOND, 0);
+			startTime = new Date(month.getTimeInMillis());
+			sql = "SELECT COUNT(*) from MONTHDB WHERE SENID=? AND TIME >= ? AND TIME <?";
+			Type = "月数据";
+		} else {
+			log.error("报警" + id + "缺数检查Unknow DataType");
+			return;
+		}
+		PreparedStatement pstmt = null;
+		ResultSet rs = null;
+		StringBuffer errorStr = new StringBuffer(sdf.format(cal.getTime())+"测站"  );
+		boolean findError = false;
+		StringBuffer recoverStr = new StringBuffer(sdf.format(cal.getTime())+"测站" );
+		boolean findRecover = false;
+		boolean alarmAll = false;
+		if ((cal.getTimeInMillis() - ar.recordTime) >= 3600000)// 缺数时间超过1小时再报一次发全集
+		{
+			alarmAll = true;
+		}
+		for (int i = 0; i < ids.length; i++)
+			try {
+				if (dataType == PolicyDefine.Real) {
+					sql = "SELECT COUNT(*) from " + ids[i].table
+							+ " WHERE SENID=? AND TIME >= ? AND TIME <?";
+				}
+				pstmt = conn.prepareStatement(sql);
+				pstmt.setLong(1, ids[i].senid);
+				pstmt.setTimestamp(2, new Timestamp(startTime.getTime()));
+				pstmt.setTimestamp(3, new Timestamp(endTime.getTime()));
+				rs = pstmt.executeQuery();
+
+				int count = 0;
+				if (rs.next()) {
+					count = rs.getInt(1);
+				}
+				if (count == 0) {
+					log.debug(name + "(" + ids[i].senid + ")" + Type + "无");
+					boolean find = false;
+					for (int j = 0; j < ar.abnormalIds.size(); j++)
+						if (ar.abnormalIds.get(j).longValue() == ids[i].senid) {
+							find = true;
+							break;
+						}
+					if (!find || alarmAll)// 已经报过不报
+					{
+						errorStr.append( ids[i].name + ",");
+						findError = true;
+					}
+					if (!find)
+						ar.abnormalIds.add(ids[i].senid);
+
+				} else {
+					log.debug(name + "(" + ids[i].senid + ")" + Type + "有");
+					boolean find = false;
+					Iterator<Long> it;
+					for (it = ar.abnormalIds.iterator(); it.hasNext();) {
+						Long one = it.next();
+						if (one.longValue() == ids[i].senid)// long和LONG不能直接比较
+						{
+							find = true;
+							break;
+						}
+					}
+					if (find)// 已经报过缺数
+					{
+					system.out.println()
+						it.remove();
+						recoverStr.append(ids[i].name + ",");
+						findRecover = true;
+					}
+
+				}
+				rs.close();
+				rs = null;
+				pstmt.close();
+				pstmt = null;
+				
+			} catch (Exception e) {
+			if (rs != null)
+				try {
+					rs.close();
+				} catch (Exception e1) {
+					e1.printStackTrace();
+				}
+			if (pstmt != null)
+				try {
+					pstmt.close();
+				} catch (Exception e1) {
+					e1.printStackTrace();
+				}
+			dealDBException(e, db);
+		}
+		ar.checkTime = cal.getTimeInMillis();
+		if(findError)
+		{
+			String s=errorStr.toString();
+			s=s.substring(0,s.lastIndexOf(","))+"缺数";					
+			sendToDB(cal.getTimeInMillis(),s,null);
+			log.info(s);
+			ar.recordTime=cal.getTimeInMillis();
+		}
+		if (findRecover)
+		{
+			String s=recoverStr.toString();
+			s=s.substring(0,s.lastIndexOf(","))+"恢复";	
+			if (findError)
+				sendToDB(cal.getTimeInMillis()+1000,s,null);//同一策略数据不能时间相同
+			else
+				sendToDB(cal.getTimeInMillis(),s,null);
+			log.info(s);
+			ar.recordTime=cal.getTimeInMillis();
+		}
+		log.debug("queshu check " + name + " end!");
+	};
+					
+					
+	public boolean getConfig(byte[]bs) {
+		Document doc = null;
+		SAXReader saxReader = new SAXReader();
+		try {
+				doc = saxReader.read(new ByteArrayInputStream(bs/*s.getBytes("UTF-8")*/));
+			
+			Element root = doc.getRootElement();
+			String senids=root.element("senid").getStringValue();
+			String []idString=senids.split(",");
+			long x[]=new long[idString.length];
+			int c = 0;
+			for (int i = 0; i < idString.length; i++) {
+				try {
+					boolean find=false;
+					long ii = Long.parseLong(idString[i]);
+					for (int j = 0; j < c; j++)// 去掉重复点号定义
+					{
+						if (x[j] == ii) {
+							find=true;// 去掉重复点号定义
+							break;
+						}
+					}
+					if (!find) {
+						x[c] = ii;
+						c++;
+					}
+				} catch (Exception e) {
+					log.info(e.toString());
+
+				}
+			}	
+			ids=new IdDefine[c];
+			for (int i=0;i<c;i++)
+			{
+				ids[i]=new IdDefine();
+				ids[i].senid=x[i];
+			}
+			interval = Integer.parseInt(root.element("interval")
+					.getStringValue());
+			timeSpan = Integer.parseInt(root.element("timespan")
+					.getStringValue());
+			dataType = Integer.parseInt(root.element("datatype")
+					.getStringValue());
+			return true;
+		} catch (Exception e) {
+			log.info(e.toString());
+			e.printStackTrace();
+			return false;
+
+		}
+	}
+
+	@Override
+	public void setName(List lists) {
+		for (int i = 0; i < ids.length; i++) {
+			for (Iterator it = lists.iterator(); it.hasNext();) {
+				Object one = it.next();
+				if (one.getClass().getName().equals(
+						"com.nari.slsd.hd.model.WdsHydroElements")) {
+					WdsHydroElements mea = (WdsHydroElements) one;
+
+					if (mea.getId() == ids[i].senid) {
+						ids[i].name = mea.getName();
+						switch (mea.getRtdb()) {
+						case 1:
+							ids[i].table = "rtdb";
+							break;
+						case 2:
+							ids[i].table = "rtsq";
+							break;
+						case 3:
+							ids[i].table = "rtems";
+							break;
+						case 4:
+							ids[i].table = "rtcalc";
+							break;
+						default:
+							ids[i].table = "rtsq";
+						}
+						break;
+					}//switch
+				}//if
+			}//forlists
+			if (ids[i].table==null)
+				ids[i].table = "rtsq";
+			if (ids[i].name==null)
+				ids[i].name=String.valueOf(ids[i].senid);//Hydroelement表
+		}//for ids
+
+	}
+
+	@Override
+	public void check(Calendar c, IWdsHisDataService wdsService) {
+		// TODO Auto-generated method stub
+		
+	};
+
+}
